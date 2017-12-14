@@ -85,6 +85,11 @@ typedef struct PnvChipClass {
     uint32_t (*core_pir)(PnvChip *chip, uint32_t core_id);
 } PnvChipClass;
 
+static inline bool pnv_chip_is_power9(const PnvChip *chip)
+{
+    return PNV_CHIP_GET_CLASS(chip)->chip_type == PNV_CHIP_POWER9;
+}
+
 #define PNV_CHIP_TYPE_SUFFIX "-" TYPE_PNV_CHIP
 #define PNV_CHIP_TYPE_NAME(cpu_model) cpu_model PNV_CHIP_TYPE_SUFFIX
 
