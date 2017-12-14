@@ -785,7 +785,10 @@ static void pnv_init(MachineState *machine)
         object_property_set_int(chip, PNV_CHIP_HWID(i), "chip-id",
                                 &error_fatal);
         object_property_set_int(chip, cores_per_chip, "nr-cores", &error_fatal);
-        object_property_set_int(chip, 1, "num-phbs", &error_fatal);
+        /* There is no PHB4 support for POWER9 chips */
+        if (pnv_chip_is_power9(PNV_CHIP(chip))) {
+            object_property_set_int(chip, 0, "num-phbs", &error_fatal);
+        }
         object_property_set_bool(chip, true, "realized", &error_fatal);
     }
     g_free(chip_typename);
