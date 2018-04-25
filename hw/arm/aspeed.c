@@ -32,6 +32,7 @@ static struct arm_boot_info aspeed_board_binfo = {
 typedef struct AspeedBoardState {
     AspeedSoCState soc;
     MemoryRegion ram;
+    MemoryRegion max_ram;
 } AspeedBoardState;
 
 typedef struct AspeedBoardConfig {
@@ -182,6 +183,32 @@ static void aspeed_board_init_flashes(AspeedSMCState *s, const char *flashtype,
     }
 }
 
+
+/*
+ * The max ram region is for firmwares that scan the address space
+ * with load/store to guess how much RAM the SoC has.
+ */
+static uint64_t max_ram_read(void *opaque, hwaddr offset, unsigned size)
+{
+    qemu_log_mask(LOG_GUEST_ERROR, "%s: 0x%" HWADDR_PRIx " [%u]\n",
+                  __func__, offset, size);
+    return 0;
+}
+
+static void max_ram_write(void *opaque, hwaddr offset, uint64_t value,
+                           unsigned size)
+{
+    qemu_log_mask(LOG_GUEST_ERROR,
+                  "%s: 0x%" HWADDR_PRIx " <- 0x%" PRIx64 " [%u]\n",
+                  __func__, offset, value, size);
+}
+
+static const MemoryRegionOps max_ram_ops = {
+    .read = max_ram_read,
+    .write = max_ram_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
 /*
  * This is to track invalid writes done in the ROM by some legacy
  * firmwares
@@ -218,6 +245,7 @@ static void aspeed_board_init(MachineState *machine,
     DriveInfo *drive0 = drive_get(IF_MTD, 0, 0);
     MemoryRegion *boot_rom;
     size_t boot_rom_size;
+    ram_addr_t max_ram_size;
 
     bmc = g_new0(AspeedBoardState, 1);
     object_initialize(&bmc->soc, (sizeof(bmc->soc)), cfg->soc_name);
@@ -250,12 +278,20 @@ static void aspeed_board_init(MachineState *machine,
      */
     ram_size = object_property_get_uint(OBJECT(&bmc->soc), "ram-size",
                                         &error_abort);
+    max_ram_size = object_property_get_uint(OBJECT(&bmc->soc), "max-ram-size",
+                                            &error_abort);
 
     memory_region_allocate_system_memory(&bmc->ram, NULL, "ram", ram_size);
     memory_region_add_subregion(get_system_memory(), sc->info->sdram_base,
                                 &bmc->ram);
     object_property_add_const_link(OBJECT(&bmc->soc), "ram", OBJECT(&bmc->ram),
                                    &error_abort);
+
+    memory_region_init_io(&bmc->max_ram, NULL, &max_ram_ops, NULL,
+                          "max_ram", max_ram_size  - ram_size);
+    memory_region_add_subregion(get_system_memory(),
+                                sc->info->sdram_base + ram_size,
+                                &bmc->max_ram);
 
     aspeed_board_init_flashes(&bmc->soc.fmc, cfg->fmc_model, &error_abort);
     aspeed_board_init_flashes(&bmc->soc.spi[0], cfg->spi_model, &error_abort);
