@@ -761,6 +761,53 @@ static void ftgmac100_write(void *opaque, hwaddr addr,
     ftgmac100_update_irq(s);
 }
 
+/*
+ * Multicast hash routine from :
+ *
+ *    https://lists.gnu.org/archive/html/qemu-devel/2013-03/msg02601.html
+ *
+ * Copyright (C) 2012 Faraday Technology
+ * Written by Kuo-Jung Su <dantesu@faraday-tech.com>
+ *
+ * This file is licensed under GNU GPL v2.
+ */
+static uint8_t bitrev8(uint8_t v)
+{
+    int i;
+    uint8_t r = 0;
+    for (i = 0; i < 8; ++i) {
+        if (v & (1 << i)) {
+            r |= (1 << (7 - i));
+        }
+    }
+    return r;
+}
+
+static int ftgmac100_mcast_hash(FTGMAC100State *s, const uint8_t *data)
+{
+#define CRCPOLY_BE    0x04c11db7
+    int i, len;
+    uint32_t crc = 0xFFFFFFFF;
+
+    if (s->maccr & FTGMAC100_MACCR_GIGA_MODE) {
+        len = 5;
+    } else {
+        len = 6;
+    }
+
+    while (len--) {
+        uint32_t c = *(data++);
+        for (i = 0; i < 8; ++i) {
+            crc = (crc << 1) ^ ((((crc >> 31) ^ c) & 0x01) ? CRCPOLY_BE : 0);
+            c >>= 1;
+        }
+    }
+    crc = ~crc;
+
+    /* Reverse CRC32 and return MSB 6 bits only */
+    return bitrev8(crc >> 24) >> 2;
+}
+
 static int ftgmac100_filter(FTGMAC100State *s, const uint8_t *buf, size_t len)
 {
     unsigned mcast_idx;
@@ -781,8 +828,7 @@ static int ftgmac100_filter(FTGMAC100State *s, const uint8_t *buf, size_t len)
                 return 0;
             }
 
-            /* TODO: this does not seem to work for ftgmac100 */
-            mcast_idx = net_crc32(buf, ETH_ALEN) >> 26;
+            mcast_idx = ftgmac100_mcast_hash(s, buf);
             if (!(s->math[mcast_idx / 32] & (1 << (mcast_idx % 32)))) {
                 return 0;
             }
