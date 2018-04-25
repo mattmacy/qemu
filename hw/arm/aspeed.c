@@ -199,6 +199,17 @@ static const MemoryRegionOps boot_rom_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
+/*
+ * Inspired from the Raspberry machine which has the same ARM1176 CPU.
+ */
+#define MVBAR_ADDR      0x400 /* secure vectors */
+#define BOARDSETUP_ADDR (MVBAR_ADDR + 0x20) /* board setup code */
+
+static void write_board_setup(ARMCPU *cpu, const struct arm_boot_info *info)
+{
+    arm_write_secure_board_setup_dummy_smc(cpu, info, MVBAR_ADDR);
+}
+
 static void aspeed_board_init(MachineState *machine,
                               const AspeedBoardConfig *cfg)
 {
@@ -265,7 +276,7 @@ static void aspeed_board_init(MachineState *machine,
                                 boot_rom);
 
     /* Install first FMC flash content (if any) as a boot rom. */
-    if (drive0) {
+    if (drive0 && !machine->kernel_filename) {
         write_boot_rom(drive0, FIRMWARE_ADDR, boot_rom_size, &error_abort);
     }
 
@@ -274,6 +285,13 @@ static void aspeed_board_init(MachineState *machine,
     aspeed_board_binfo.kernel_cmdline = machine->kernel_cmdline;
     aspeed_board_binfo.ram_size = ram_size;
     aspeed_board_binfo.loader_start = sc->info->sdram_base;
+
+    /* The palmetto-bmc has a ARMv5 CPU. No secure world on such */
+    if (cfg != &aspeed_boards[PALMETTO_BMC]) {
+        aspeed_board_binfo.board_setup_addr = BOARDSETUP_ADDR;
+        aspeed_board_binfo.write_board_setup = write_board_setup;
+        aspeed_board_binfo.secure_board_setup = true;
+    }
 
     if (cfg->i2c_init) {
         cfg->i2c_init(bmc);
