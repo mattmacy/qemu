@@ -26,6 +26,8 @@
 #include "hw/ppc/pnv_psi.h"
 #include "hw/ppc/pnv_occ.h"
 
+typedef struct PnvPHB3 PnvPHB3;
+
 #define TYPE_PNV_CHIP "pnv-chip"
 #define PNV_CHIP(obj) OBJECT_CHECK(PnvChip, (obj), TYPE_PNV_CHIP)
 #define PNV_CHIP_CLASS(klass) \
@@ -62,6 +64,10 @@ typedef struct PnvChip {
     PnvLpcController lpc;
     PnvPsi       psi;
     PnvOCC       occ;
+
+    uint32_t     num_phbs;
+#define PNV_MAX_CHIP_PHB 4
+    PnvPHB3 *phbs[PNV_MAX_CHIP_PHB];
 } PnvChip;
 
 typedef struct PnvChipClass {
