@@ -197,6 +197,13 @@ static void spapr_irq_print_info_xics(sPAPRMachineState *spapr, Monitor *mon)
     ics_pic_print_info(spapr->ics, mon);
 }
 
+static void spapr_irq_dt_populate_xics(sPAPRMachineState *spapr,
+                                       uint32_t nr_servers, void *fdt,
+                                       uint32_t phandle)
+{
+    spapr_dt_xics(nr_servers, fdt, phandle);
+}
+
 sPAPRIrq spapr_irq_xics = {
     .nr_irqs     = 0x1000,
 
@@ -205,6 +212,7 @@ sPAPRIrq spapr_irq_xics = {
     .free        = spapr_irq_free_xics,
     .qirq        = spapr_qirq_xics,
     .print_info  = spapr_irq_print_info_xics,
+    .dt_populate = spapr_irq_dt_populate_xics,
 };
 
 /*
@@ -305,6 +313,13 @@ static void spapr_irq_print_info_xive(sPAPRMachineState *spapr,
     spapr_xive_pic_print_info(spapr->xive, mon);
 }
 
+static void spapr_irq_dt_populate_xive(sPAPRMachineState *spapr,
+                                       uint32_t nr_servers, void *fdt,
+                                       uint32_t phandle)
+{
+    spapr_dt_xive(spapr->xive, nr_servers, fdt, phandle);
+}
+
 /*
  * XIVE uses the full IRQ number space. Set it to 8K to be compatible
  * with XICS.
@@ -318,6 +333,7 @@ sPAPRIrq spapr_irq_xive = {
     .free        = spapr_irq_free_xive,
     .qirq        = spapr_qirq_xive,
     .print_info  = spapr_irq_print_info_xive,
+    .dt_populate = spapr_irq_dt_populate_xive,
 };
 
 /*
@@ -408,4 +424,5 @@ sPAPRIrq spapr_irq_xics_legacy = {
     .free        = spapr_irq_free_xics,
     .qirq        = spapr_qirq_xics,
     .print_info  = spapr_irq_print_info_xics,
+    .dt_populate = spapr_irq_dt_populate_xics,
 };
