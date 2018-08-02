@@ -247,10 +247,10 @@ static sPAPRXive *spapr_xive_create(sPAPRMachineState *spapr,
 
     /* Enable the CPU IPIs */
     for (i = 0; i < nr_servers; ++i) {
-        spapr_xive_irq_enable(SPAPR_XIVE(obj), SPAPR_IRQ_IPI + i, false);
+        spapr_xive_irq_enable(SPAPR_XIVE_BASE(obj), SPAPR_IRQ_IPI + i, false);
     }
 
-    return SPAPR_XIVE(obj);
+    return SPAPR_XIVE_BASE(obj);
 }
 
 static void spapr_irq_init_xive(sPAPRMachineState *spapr, uint32_t nr_servers,
@@ -265,9 +265,22 @@ static void spapr_irq_init_xive(sPAPRMachineState *spapr, uint32_t nr_servers,
     spapr_irq_msi_init(spapr, nr_irqs - SPAPR_IRQ_MSI);
 
     /* KVM XIVE support */
-    if (kvm_enabled()) {
-        if (machine_kernel_irqchip_required(machine)) {
-            error_setg(errp, "kernel_irqchip requested. no XIVE support");
+    if (kvm_enabled() && machine_kernel_irqchip_allowed(machine)) {
+        spapr->xive_tctx_type = TYPE_XIVE_TCTX_KVM;
+        spapr->xive = spapr_xive_create(spapr, TYPE_SPAPR_XIVE_KVM, nr_irqs,
+                                        nr_servers, &local_err);
+
+        if (local_err && machine_kernel_irqchip_required(machine)) {
+            error_propagate(errp, local_err);
+            error_prepend(errp, "kernel_irqchip requested. no XIVE support");
+            return;
+        }
+
+        /*
+         * XIVE support is activated under KVM. No need to initialize
+         * the fallback mode under QEMU
+         */
+        if (spapr->xive) {
             return;
         }
     }
@@ -316,7 +329,7 @@ static void spapr_irq_print_info_xive(sPAPRMachineState *spapr,
     CPU_FOREACH(cs) {
         PowerPCCPU *cpu = POWERPC_CPU(cs);
 
-        xive_tctx_pic_print_info(XIVE_TCTX(cpu->intc), mon);
+        xive_tctx_pic_print_info(XIVE_TCTX_BASE(cpu->intc), mon);
     }
 
     spapr_xive_pic_print_info(spapr->xive, mon);
