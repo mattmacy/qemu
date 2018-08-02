@@ -486,6 +486,7 @@ static uint32_t xive_tctx_hw_cam(XiveTCTX *tctx, bool block_group)
 static void xive_tctx_reset(void *dev)
 {
     XiveTCTX *tctx = XIVE_TCTX(dev);
+    XiveRouterClass *xrc = XIVE_ROUTER_GET_CLASS(tctx->xrtr);
 
     memset(tctx->regs, 0, sizeof(tctx->regs));
 
@@ -500,6 +501,23 @@ static void xive_tctx_reset(void *dev)
      */
     tctx->regs[TM_QW1_OS + TM_PIPR] =
         ipb_to_pipr(tctx->regs[TM_QW1_OS + TM_IPB]);
+
+    /*
+     * sPAPR only.
+     *
+     * When a VP is scheduled to run on a HW thread, the hypervisor
+     * pushes its OS CAM line. Under QEMU, we need to emulate the same
+     * behavior.
+     */
+    if (xrc->get_vp_info) {
+        uint8_t  vp_blk;
+        uint32_t vp_idx;
+        uint32_t vp_cam;
+
+        xrc->get_vp_info(tctx->xrtr, POWERPC_CPU(tctx->cs), &vp_blk, &vp_idx);
+        vp_cam = cpu_to_be32(TM_QW1W2_VO | tctx_cam_line(vp_blk, vp_idx));
+        memcpy(&tctx->regs[TM_QW1_OS + TM_WORD2], &vp_cam, 4);
+    }
 }
 
 static void xive_tctx_realize(DeviceState *dev, Error **errp)
