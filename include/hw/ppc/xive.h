@@ -85,6 +85,10 @@ typedef struct XiveSourceClass {
 
     DeviceRealize     parent_realize;
     DeviceReset       parent_reset;
+
+    void (*synchronize_state)(XiveSource *xsrc);
+    int  (*pre_save)(XiveSource *xsrc);
+    int  (*post_load)(XiveSource *xsrc, int version_id);
 } XiveSourceClass;
 
 /*
@@ -308,6 +312,10 @@ typedef struct XiveTCTXClass {
     DeviceClass       parent_class;
 
     DeviceRealize     parent_realize;
+
+    void (*synchronize_state)(XiveTCTX *tctx);
+    int  (*pre_save)(XiveTCTX *tctx);
+    int  (*post_load)(XiveTCTX *tctx, int version_id);
 } XiveTCTXClass;
 
 /*
